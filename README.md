@@ -1,6 +1,6 @@
 # Ascent 🏔️
 
-A personal, Duolingo-style habit-training web app. Climb a path of 6 sequenced units toward CTO-level thinking — engineering leadership, scaling teams, system design, architecture & reliability, tech strategy, and productivity habits.
+A personal, Duolingo-style self-learning web app. Climb a path of 6 sequenced units covering engineering leadership, scaling teams, system design, architecture & reliability, tech strategy, and productivity habits.
 
 Single self-contained `index.html`. No build step, no login, no backend. Your progress (XP, streak, completed lessons) is saved on your device with `localStorage`, so it survives closing the browser.
 
