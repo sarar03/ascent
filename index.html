@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#58cc02">
+<title>Ascent</title>
+<style>
+  :root{
+    --green:#58cc02; --green-d:#58a700; --green-l:#d7ffb8;
+    --blue:#1cb0f6; --blue-d:#1899d6;
+    --red:#ff4b4b; --red-d:#ea2b2b;
+    --gold:#ffc800; --purple:#ce82ff;
+    --ink:#3c3c3c; --gray:#afafaf; --gray-l:#e5e5e5; --gray-bg:#f7f7f7;
+    --locked:#b0b0b0;
+    --shadow:0 4px 0;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink); background:#fff; overflow-x:hidden;
+    -webkit-font-smoothing:antialiased; touch-action:manipulation;
+  }
+  .app{max-width:480px; margin:0 auto; min-height:100%; display:flex; flex-direction:column; position:relative;}
+  button{font-family:inherit; cursor:pointer; border:none; background:none;}
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    position:sticky; top:0; z-index:20; background:#fff;
+    padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;
+    display:flex; align-items:center; gap:14px; border-bottom:2px solid var(--gray-l);
+  }
+  .stat{display:flex; align-items:center; gap:5px; font-weight:800; font-size:17px;}
+  .stat .ico{font-size:19px;}
+  .stat.streak{color:#ff9600;}
+  .stat.xp{color:var(--gold);}
+  .stat.level{color:var(--blue); margin-left:auto;}
+
+  /* ---------- Path ---------- */
+  .path{flex:1; padding:14px 16px 110px; background:var(--gray-bg);}
+  .unit{margin-bottom:6px;}
+  .unit-head{
+    border-radius:16px; padding:16px 18px; margin:18px 0 10px; color:#fff;
+    box-shadow:var(--shadow) rgba(0,0,0,.18);
+  }
+  .unit-head h2{font-size:13px; letter-spacing:.5px; text-transform:uppercase; opacity:.9; font-weight:800;}
+  .unit-head p{font-size:19px; font-weight:800; margin-top:3px;}
+  .unit.locked .unit-head{background:var(--locked)!important; box-shadow:var(--shadow) rgba(0,0,0,.12);}
+  .lessons{display:flex; flex-direction:column; align-items:center; gap:8px;}
+  /* zig-zag offsets */
+  .node-wrap{display:flex; justify-content:center; width:100%;}
+  .node-wrap:nth-child(1){transform:translateX(-46px);}
+  .node-wrap:nth-child(2){transform:translateX(46px);}
+  .node{
+    width:74px; height:66px; border-radius:50%; position:relative;
+    display:flex; align-items:center; justify-content:center;
+    font-size:30px; font-weight:800; color:#fff;
+    transition:transform .08s;
+  }
+  .node:active{transform:translateY(3px);}
+  .node.done{background:var(--gold); box-shadow:var(--shadow) #d6a500;}
+  .node.current{background:var(--green); box-shadow:var(--shadow) var(--green-d);}
+  .node.locked{background:var(--gray-l); box-shadow:var(--shadow) #cfcfcf; color:#b0b0b0; cursor:not-allowed;}
+  .node .crown{position:absolute; top:-10px; font-size:16px;}
+  .node-label{font-size:11px; font-weight:700; color:var(--gray); margin-top:2px; text-align:center;}
+  .start-pop{
+    position:absolute; top:-44px; left:50%; transform:translateX(-50%);
+    background:#fff; color:var(--green-d); font-weight:800; font-size:12px;
+    padding:7px 12px; border-radius:12px; box-shadow:0 2px 6px rgba(0,0,0,.18);
+    white-space:nowrap; letter-spacing:.5px;
+  }
+  .start-pop:after{content:""; position:absolute; bottom:-7px; left:50%; transform:translateX(-50%);
+    border-left:7px solid transparent; border-right:7px solid transparent; border-top:7px solid #fff;}
+
+  .app-title{text-align:center; padding:18px 0 4px;}
+  .app-title h1{font-size:26px; font-weight:900; color:var(--green); letter-spacing:.5px;}
+  .app-title span{font-size:13px; color:var(--gray); font-weight:700;}
+
+  /* ---------- Lesson screen ---------- */
+  .lesson{position:fixed; inset:0; background:#fff; z-index:50; display:none; flex-direction:column; max-width:480px; margin:0 auto;}
+  .lesson.open{display:flex;}
+  .lesson-top{display:flex; align-items:center; gap:14px; padding:calc(env(safe-area-inset-top) + 14px) 16px 10px;}
+  .close-btn{font-size:26px; color:var(--gray); font-weight:700; line-height:1; padding:2px 6px;}
+  .progress-track{flex:1; height:16px; background:var(--gray-l); border-radius:10px; overflow:hidden;}
+  .progress-fill{height:100%; background:var(--green); border-radius:10px; width:0; transition:width .3s;}
+  .hearts{display:flex; align-items:center; gap:3px; color:var(--red); font-weight:800; font-size:18px;}
+
+  .q-area{flex:1; padding:18px 20px; overflow-y:auto;}
+  .q-tag{font-size:12px; font-weight:800; color:var(--gray); text-transform:uppercase; letter-spacing:.5px;}
+  .q-text{font-size:21px; font-weight:800; margin:10px 0 22px; line-height:1.35;}
+  .options{display:flex; flex-direction:column; gap:12px;}
+  .opt{
+    text-align:left; padding:16px 16px; border:2px solid var(--gray-l); border-bottom-width:4px;
+    border-radius:14px; font-size:16px; font-weight:600; color:var(--ink); background:#fff;
+    transition:background .1s;
+  }
+  .opt:active{background:var(--gray-bg);}
+  .opt.selected{border-color:var(--blue); background:#ddf4ff; color:var(--blue-d);}
+  .opt.correct{border-color:var(--green); background:var(--green-l); color:var(--green-d);}
+  .opt.wrong{border-color:var(--red); background:#ffdfe0; color:var(--red-d);}
+  .opt.disabled{pointer-events:none; opacity:.55;}
+
+  .explain{
+    margin-top:18px; padding:16px; border-radius:14px; font-size:15px; line-height:1.5; font-weight:600;
+    display:none;
+  }
+  .explain.show{display:block;}
+  .explain.ok{background:var(--green-l); color:var(--green-d);}
+  .explain.no{background:#ffdfe0; color:var(--red-d);}
+  .explain b{display:block; font-size:16px; font-weight:800; margin-bottom:4px;}
+
+  .footer{
+    padding:16px 20px calc(env(safe-area-inset-bottom) + 18px); border-top:2px solid var(--gray-l);
+    background:#fff;
+  }
+  .btn{
+    width:100%; padding:15px; border-radius:14px; font-size:16px; font-weight:800;
+    letter-spacing:.5px; color:#fff; box-shadow:var(--shadow) rgba(0,0,0,.2); text-transform:uppercase;
+  }
+  .btn.green{background:var(--green); box-shadow:var(--shadow) var(--green-d);}
+  .btn.blue{background:var(--blue); box-shadow:var(--shadow) var(--blue-d);}
+  .btn.red{background:var(--red); box-shadow:var(--shadow) var(--red-d);}
+  .btn.gray{background:var(--gray-l); box-shadow:var(--shadow) #cfcfcf; color:#afafaf;}
+  .btn:active{transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.2);}
+  .btn:disabled{background:var(--gray-l); box-shadow:var(--shadow) #cfcfcf; color:#afafaf; pointer-events:none;}
+
+  /* ---------- End / overlay screens ---------- */
+  .overlay{position:fixed; inset:0; z-index:60; background:#fff; display:none; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; padding:30px; max-width:480px; margin:0 auto;}
+  .overlay.open{display:flex;}
+  .overlay .big{font-size:64px; margin-bottom:10px;}
+  .overlay h2{font-size:26px; font-weight:900; margin-bottom:8px;}
+  .overlay p{font-size:16px; color:var(--gray); font-weight:600; margin-bottom:26px;}
+  .reward-row{display:flex; gap:14px; margin-bottom:30px;}
+  .reward{border:2px solid var(--gold); border-radius:14px; padding:12px 20px; min-width:96px;}
+  .reward .lbl{font-size:11px; font-weight:800; color:var(--gold); text-transform:uppercase; letter-spacing:.5px;}
+  .reward .val{font-size:24px; font-weight:900; color:#e6b400;}
+  .reward.blue{border-color:var(--blue);} .reward.blue .lbl{color:var(--blue);} .reward.blue .val{color:var(--blue-d);}
+  .overlay .footer{width:100%; border:none; background:none;}
+
+  /* ---------- Reset link ---------- */
+  .reset{position:fixed; bottom:8px; left:50%; transform:translateX(-50%); font-size:11px; color:var(--gray);
+    font-weight:600; z-index:5; padding:6px;}
+
+  .toast{position:fixed; top:14px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff;
+    padding:10px 18px; border-radius:20px; font-weight:700; font-size:14px; z-index:90; opacity:0;
+    transition:opacity .25s, transform .25s; pointer-events:none;}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(4px);}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="stat streak"><span class="ico">🔥</span><span id="streakNum">0</span></div>
+    <div class="stat xp"><span class="ico">⚡</span><span id="xpNum">0</span></div>
+    <div class="stat level"><span class="ico">⭐</span>Lvl <span id="levelNum">1</span></div>
+  </div>
+
+  <div class="path" id="path">
+    <div class="app-title">
+      <h1>ASCENT</h1>
+      <span>Climb toward CTO, one lesson at a time</span>
+    </div>
+    <!-- units injected here -->
+  </div>
+</div>
+
+<!-- Lesson screen -->
+<div class="lesson" id="lesson">
+  <div class="lesson-top">
+    <button class="close-btn" id="closeLesson">✕</button>
+    <div class="progress-track"><div class="progress-fill" id="progFill"></div></div>
+    <div class="hearts" id="hearts">❤️❤️❤️</div>
+  </div>
+  <div class="q-area" id="qArea"></div>
+  <div class="footer">
+    <button class="btn gray" id="checkBtn" disabled>Check</button>
+  </div>
+</div>
+
+<!-- Lesson complete overlay -->
+<div class="overlay" id="winScreen">
+  <div class="big">🎉</div>
+  <h2>Lesson complete!</h2>
+  <p id="winSub">Nice climbing.</p>
+  <div class="reward-row">
+    <div class="reward"><div class="lbl">Total XP</div><div class="val" id="winXp">+0</div></div>
+    <div class="reward blue"><div class="lbl">Accuracy</div><div class="val" id="winAcc">0%</div></div>
+  </div>
+  <div class="footer"><button class="btn green" id="winContinue">Continue</button></div>
+</div>
+
+<!-- Out of hearts overlay -->
+<div class="overlay" id="failScreen">
+  <div class="big">💔</div>
+  <h2>Out of hearts</h2>
+  <p>You ran out of hearts on this lesson. Give it another go — practice is how the streak grows.</p>
+  <div class="footer">
+    <button class="btn red" id="retryBtn">Try again</button>
+    <button class="btn gray" id="quitBtn" style="margin-top:12px;">Back to path</button>
+  </div>
+</div>
+
+<button class="reset" id="resetBtn">Reset all progress</button>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =====================================================================
+   ASCENT — content
+   6 units · 2 lessons each · 3 questions each (36 total)
+   Themes: engineering leadership, scaling teams, system design,
+   architecture & reliability, tech strategy, productivity habits.
+   ===================================================================== */
+const COURSE = [
+  {
+    title:"Leadership Foundations", color:"#58cc02",
+    lessons:[
+      [
+        {q:"A senior engineer keeps shipping clever but unreadable code. What's the most effective first move as a leader?",
+         opts:["Rewrite their code yourself","Have a direct 1:1 framing readability as a team value","Bring it up publicly in standup","Quietly route work away from them"],
+         a:1, e:"Leadership scales through people, not through you doing the work. A private, specific conversation tied to a shared value preserves trust and changes behavior."},
+        {q:"What's the clearest sign you're micromanaging?",
+         opts:["You set the goal and step back","You review outcomes weekly","You dictate the 'how', not just the 'what'","You ask for status updates"],
+         a:2, e:"Owning the 'what' and the 'why' while letting the team own the 'how' is delegation. Prescribing the 'how' removes ownership and stalls growth."},
+        {q:"A teammate disagrees with your technical decision in a meeting. The healthiest response is to:",
+         opts:["Defend the decision firmly","Ask them to walk through their reasoning","Defer the topic indefinitely","Pull rank to settle it"],
+         a:1, e:"Inviting reasoning surfaces information you may lack and models psychological safety. Good leaders optimize for the best idea, not for being right."}
+      ],
+      [
+        {q:"What best describes the job of a great engineering manager?",
+         opts:["Be the best coder on the team","Multiply the output and growth of others","Attend the most meetings","Own every architectural choice"],
+         a:1, e:"An EM's unit of work is the team. Success is measured by the team's throughput, health, and development — a multiplier role, not an individual-contributor one."},
+        {q:"Feedback lands best when it is:",
+         opts:["Saved for the annual review","Specific, timely, and tied to impact","General and gentle","Delivered only in writing"],
+         a:1, e:"Vague or delayed feedback can't be acted on. 'When X happened, the impact was Y' is concrete, fresh, and gives the person a clear path to adjust."},
+        {q:"Your team missed a deadline. As the leader, in the retro you should first:",
+         opts:["Identify who to blame","Examine the system and process that allowed it","Add more status meetings","Tighten the next deadline"],
+         a:1, e:"Blameless retros focus on the conditions, not the person. Most misses are systemic — unclear scope, hidden dependencies — and fixing the system prevents recurrence."}
+      ]
+    ]
+  },
+  {
+    title:"Scaling Teams & Org Design", color:"#1cb0f6",
+    lessons:[
+      [
+        {q:"Conway's Law says that systems tend to mirror:",
+         opts:["The CEO's preferences","The communication structure of the org","The newest framework","The biggest customer"],
+         a:1, e:"Conway's Law: organizations design systems that copy their own communication structure. So shaping team boundaries is itself an architectural decision."},
+        {q:"A team has grown to 14 engineers reporting to one manager. The usual next step is to:",
+         opts:["Add more process","Split into smaller teams with clear ownership","Hire a second manager for the same group","Do nothing; size is fine"],
+         a:1, e:"Span of control breaks down past ~7-8 reports. Splitting into focused teams with distinct mandates restores 1:1 quality, ownership, and decision speed."},
+        {q:"The main risk of too many cross-team dependencies is:",
+         opts:["Higher morale","Slower delivery and diffuse accountability","Cleaner architecture","More innovation"],
+         a:1, e:"Every dependency is a coordination tax and a place to wait. Loosely coupled teams aligned to clear domains ship faster and own their outcomes."}
+      ],
+      [
+        {q:"When hiring to scale, the costliest mistake is usually:",
+         opts:["Hiring slightly too slowly","Lowering the bar to fill seats fast","Spending time on structured interviews","Checking references"],
+         a:1, e:"A bad hire costs far more than an empty seat — in rework, morale, and management time. Protecting the bar is one of a leader's highest-leverage habits."},
+        {q:"What's the best reason to write down team charters and ownership?",
+         opts:["To create paperwork","To reduce ambiguity about who decides what","To satisfy HR","To slow teams down"],
+         a:1, e:"Explicit ownership removes the silent cost of 'who owns this?' Clear charters cut duplicated work, finger-pointing, and decision latency as you scale."},
+        {q:"A 'tech lead' role primarily exists to:",
+         opts:["Be a backup manager","Drive technical direction and unblock the team","Write all the code","Run sprint ceremonies"],
+         a:1, e:"Tech leads provide architectural direction and remove technical blockers so the team moves fast — distinct from the people-management track of an EM."}
+      ]
+    ]
+  },
+  {
+    title:"System Design Fundamentals", color:"#ce82ff",
+    lessons:[
+      [
+        {q:"You add a cache in front of your database mainly to:",
+         opts:["Guarantee strong consistency","Reduce read latency and DB load","Replace the database","Simplify the schema"],
+         a:1, e:"Caches serve hot reads fast and shield the database from load. The tradeoff is staleness, so caching shines for read-heavy, tolerably-stale data."},
+        {q:"Horizontal scaling means:",
+         opts:["Bigger machines","More machines sharing the load","Faster disks","Less code"],
+         a:1, e:"Scaling out (more nodes) beats scaling up (bigger node) for elasticity and fault tolerance, but requires statelessness and a way to distribute load."},
+        {q:"A load balancer's core job is to:",
+         opts:["Store user sessions","Distribute requests across healthy servers","Encrypt the database","Cache HTML"],
+         a:1, e:"Load balancers spread traffic across instances and route around unhealthy ones, enabling both horizontal scaling and resilience."}
+      ],
+      [
+        {q:"The CAP theorem says that during a network partition you must trade off between:",
+         opts:["Cost and performance","Consistency and availability","Latency and storage","Reads and writes"],
+         a:1, e:"When the network partitions (P), a distributed system must choose: stay consistent (reject some requests) or stay available (risk stale data). You can't have both."},
+        {q:"Which is a good use of a message queue?",
+         opts:["Strong real-time UI updates","Decoupling producers from slow consumers","Storing the primary record","Replacing the database index"],
+         a:1, e:"Queues absorb bursts and decouple a fast producer from a slower consumer, smoothing load and adding resilience via async processing and retries."},
+        {q:"Database indexing speeds up reads at the cost of:",
+         opts:["Slower writes and more storage","Data loss","Weaker security","Network bandwidth"],
+         a:0, e:"An index is a maintained data structure: it accelerates lookups but every write must update it, and it consumes space. Index for your real query patterns."}
+      ]
+    ]
+  },
+  {
+    title:"Architecture & Reliability", color:"#ff9600",
+    lessons:[
+      [
+        {q:"An SLO is best described as:",
+         opts:["A legal contract","A target for a reliability metric","A type of server","A deployment tool"],
+         a:1, e:"A Service Level Objective is an internal target (e.g. 99.9% availability) that guides engineering tradeoffs. The error budget is what's left before you breach it."},
+        {q:"The point of an error budget is to:",
+         opts:["Punish on-call engineers","Balance reliability work against shipping features","Eliminate all outages","Track cloud spend"],
+         a:1, e:"An error budget turns reliability into a shared, quantified decision: if you're within budget, ship; if you've burned it, slow down and harden the system."},
+        {q:"A blameless postmortem's primary goal is to:",
+         opts:["Find who caused the outage","Learn how the system let it happen and prevent recurrence","Satisfy compliance","Reassign the team"],
+         a:1, e:"Blame drives information underground. Focusing on systemic causes and concrete action items makes the whole system safer over time."}
+      ],
+      [
+        {q:"Microservices add the most value when you need:",
+         opts:["The simplest possible system","Independent deploy and scaling of distinct domains","Fewer network calls","A single shared database"],
+         a:1, e:"Microservices buy independent deployment, scaling, and team ownership — at the cost of distributed-systems complexity. Don't pay that cost without the need."},
+        {q:"A circuit breaker pattern protects a system by:",
+         opts:["Encrypting traffic","Failing fast when a dependency is unhealthy","Adding more retries","Caching all responses"],
+         a:1, e:"When a downstream service is failing, a circuit breaker stops sending doomed requests, preventing cascading failures and giving the dependency room to recover."},
+        {q:"Idempotency in an API means:",
+         opts:["Requests are encrypted","Repeating a request has the same effect as once","Requests are always fast","The API never fails"],
+         a:1, e:"Idempotent operations can be safely retried — critical for reliability, since networks drop responses and clients retry. Think PUT vs. a naive POST."}
+      ]
+    ]
+  },
+  {
+    title:"Tech Strategy & Stakeholders", color:"#cc348d",
+    lessons:[
+      [
+        {q:"When explaining a migration to non-technical executives, lead with:",
+         opts:["The tech stack details","The business outcome and risk","The git history","The framework version"],
+         a:1, e:"Executives buy outcomes and risk, not implementation. Frame work as 'this reduces churn / cost / risk by X' — translate engineering into business language."},
+        {q:"'Buy vs. build' should usually tip toward BUILD when:",
+         opts:["The capability is generic and commoditized","It's a core differentiator unique to you","A vendor already does it well","You're short on engineers"],
+         a:1, e:"Build what differentiates you; buy what doesn't. Spending scarce engineering on commodity problems a vendor solves is a poor allocation of leverage."},
+        {q:"Technical debt is best framed to leadership as:",
+         opts:["Sloppy engineering","A tradeoff with interest that slows future delivery","Something to always eliminate","Purely a code problem"],
+         a:1, e:"Debt is a financial metaphor: sometimes worth taking deliberately, but it accrues interest (slower delivery). Framing it this way makes paydown a business decision."}
+      ],
+      [
+        {q:"A good technical roadmap primarily communicates:",
+         opts:["Exact dates months out","Priorities, sequencing, and the why","Every ticket","The org chart"],
+         a:1, e:"Roadmaps align people on what matters and in what order, not on false-precision dates. They're a communication tool, revised as you learn."},
+        {q:"The strongest way to justify a large platform investment is:",
+         opts:["Engineers want it","It compounds leverage across many teams","It uses a trendy technology","It's fun to build"],
+         a:1, e:"Platform work earns its keep when it multiplies the productivity of many teams. Tie the investment to that compounding leverage, with evidence."},
+        {q:"When a deadline and quality collide, a CTO's healthiest first instinct is to:",
+         opts:["Cut quality silently","Make the tradeoff explicit with stakeholders","Always ship on time","Always slip the date"],
+         a:1, e:"Scope, time, and quality trade off. The leadership move is to surface the tradeoff and decide it openly with stakeholders — not to absorb it invisibly."}
+      ]
+    ]
+  },
+  {
+    title:"Productivity & Habits", color:"#4b4b4b",
+    lessons:[
+      [
+        {q:"Deep work is most protected by:",
+         opts:["Always-on notifications","Blocking uninterrupted focus time","Back-to-back meetings","Multitasking"],
+         a:1, e:"Cognitively demanding work needs uninterrupted blocks. Defending focus time on your calendar is a habit that compounds into outsized output."},
+        {q:"The Eisenhower matrix sorts tasks by:",
+         opts:["Cost and color","Urgency and importance","Who asked","Alphabetical order"],
+         a:1, e:"Separating urgent from important keeps you from letting noisy-but-trivial tasks crowd out the important-but-quiet work that actually moves the needle."},
+        {q:"The most reliable way to build a new daily habit is to:",
+         opts:["Rely on motivation","Anchor it to an existing routine (habit stacking)","Start with the hardest version","Wait for the new year"],
+         a:1, e:"Motivation fluctuates; cues are stable. Stacking a tiny new habit onto an existing one ('after coffee, I review my goals') makes the trigger automatic."}
+      ],
+      [
+        {q:"Time-blocking helps mainly because it:",
+         opts:["Fills every minute","Forces prioritization and reduces decision fatigue","Looks productive","Eliminates breaks"],
+         a:1, e:"Deciding in advance when work happens removes constant 'what now?' choices, protects priorities, and turns intentions into scheduled commitments."},
+        {q:"A weekly review is valuable because it:",
+         opts:["Adds busywork","Creates a feedback loop to adjust course","Replaces daily planning","Impresses your manager"],
+         a:1, e:"Reflecting weekly on what worked and what's next is the steering mechanism of any goal. Without the loop, effort drifts; with it, you correct early and often."},
+        {q:"To keep a streak alive on a busy day, the best tactic is:",
+         opts:["Skip and restart tomorrow","Do a tiny 'minimum viable' version","Wait until you have hours free","Quit the habit"],
+         a:1, e:"Never miss twice. A minimum version ('one lesson') preserves the identity and the streak. Consistency beats intensity for long-term habit formation."}
+      ]
+    ]
+  }
+];
+
+/* =====================================================================
+   State + persistence
+   ===================================================================== */
+const STORE_KEY = "ascent_progress_v1";
+const XP_PER = 10;
+const HEARTS = 3;
+
+const defaultState = () => ({
+  xp:0,
+  streak:0,
+  lastActive:null,        // ISO date string (YYYY-MM-DD) of last completed lesson
+  completed:{}            // {"u-l": true}
+});
+
+let state = load();
+let session = null;       // active lesson session
+
+function load(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(raw){ return Object.assign(defaultState(), JSON.parse(raw)); }
+  }catch(e){ console.warn("load failed", e); }
+  return defaultState();
+}
+function save(){
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+  catch(e){ console.warn("save failed", e); }
+}
+
+const todayStr = () => new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD local
+function daysBetween(a,b){
+  const d1=new Date(a+"T00:00:00"), d2=new Date(b+"T00:00:00");
+  return Math.round((d2-d1)/86400000);
+}
+function levelFromXp(xp){ return Math.floor(xp/100)+1; }   // 100 XP per level
+function xpIntoLevel(xp){ return xp%100; }
+
+function lessonKey(u,l){ return u+"-"+l; }
+function isDone(u,l){ return !!state.completed[lessonKey(u,l)]; }
+
+// a lesson is unlocked if it's the very first, or the previous lesson (in order) is done
+function isUnlocked(u,l){
+  if(u===0 && l===0) return true;
+  // previous lesson within same unit
+  if(l>0) return isDone(u,l-1);
+  // first lesson of a unit -> last lesson of previous unit
+  const prevU=u-1, prevLast=COURSE[prevU].lessons.length-1;
+  return isDone(prevU, prevLast);
+}
+function unitUnlocked(u){ return isUnlocked(u,0) || COURSE[u].lessons.some((_,l)=>isUnlocked(u,l)||isDone(u,l)); }
+
+/* =====================================================================
+   Render path
+   ===================================================================== */
+function renderTop(){
+  document.getElementById("streakNum").textContent = state.streak;
+  document.getElementById("xpNum").textContent = state.xp;
+  document.getElementById("levelNum").textContent = levelFromXp(state.xp);
+}
+
+function renderPath(){
+  renderTop();
+  const path = document.getElementById("path");
+  // clear everything after the title
+  [...path.querySelectorAll(".unit")].forEach(n=>n.remove());
+
+  COURSE.forEach((unit,u)=>{
+    const uUnlocked = unitUnlocked(u);
+    const wrap = document.createElement("div");
+    wrap.className = "unit" + (uUnlocked? "" : " locked");
+
+    const head = document.createElement("div");
+    head.className = "unit-head";
+    head.style.background = unit.color;
+    head.innerHTML = `<h2>Unit ${u+1}${uUnlocked?"":" 🔒"}</h2><p>${unit.title}</p>`;
+    wrap.appendChild(head);
+
+    const lessons = document.createElement("div");
+    lessons.className = "lessons";
+    unit.lessons.forEach((_,l)=>{
+      const done = isDone(u,l);
+      const unlocked = isUnlocked(u,l);
+      const isCurrent = unlocked && !done;
+
+      const nw = document.createElement("div");
+      nw.className = "node-wrap";
+
+      const node = document.createElement("button");
+      node.className = "node " + (done?"done":(unlocked?"current":"locked"));
+      node.innerHTML = done ? '<span class="crown">👑</span>★' : (unlocked? "★" : "🔒");
+      if(isCurrent){
+        const pop=document.createElement("div"); pop.className="start-pop"; pop.textContent="START";
+        node.appendChild(pop);
+      }
+      if(unlocked){ node.onclick = ()=>startLesson(u,l); }
+      else { node.onclick = ()=>toast("Finish the previous lesson to unlock this."); }
+
+      const col=document.createElement("div");
+      col.style.display="flex"; col.style.flexDirection="column"; col.style.alignItems="center";
+      col.appendChild(node);
+      const lbl=document.createElement("div"); lbl.className="node-label"; lbl.textContent="Lesson "+(l+1);
+      col.appendChild(lbl);
+      nw.appendChild(col);
+      lessons.appendChild(nw);
+    });
+    wrap.appendChild(lessons);
+    path.appendChild(wrap);
+  });
+}
+
+/* =====================================================================
+   Lesson flow
+   ===================================================================== */
+const lessonEl=document.getElementById("lesson");
+const qArea=document.getElementById("qArea");
+const checkBtn=document.getElementById("checkBtn");
+const heartsEl=document.getElementById("hearts");
+const progFill=document.getElementById("progFill");
+
+function startLesson(u,l){
+  const questions = COURSE[u].lessons[l];
+  session = { u, l, i:0, hearts:HEARTS, correct:0, gained:0, answered:false, selected:null, questions };
+  lessonEl.classList.add("open");
+  renderHearts();
+  renderQuestion();
+}
+
+function renderHearts(){
+  heartsEl.textContent = "❤️".repeat(session.hearts) + "🤍".repeat(HEARTS-session.hearts);
+}
+
+function renderQuestion(){
+  const s=session, qd=s.questions[s.i];
+  s.answered=false; s.selected=null;
+  progFill.style.width = ((s.i)/s.questions.length*100)+"%";
+
+  let html = `<div class="q-tag">Question ${s.i+1} of ${s.questions.length}</div>
+    <div class="q-text">${qd.q}</div><div class="options" id="opts">`;
+  qd.opts.forEach((o,idx)=>{ html+=`<button class="opt" data-idx="${idx}">${o}</button>`; });
+  html += `</div><div class="explain" id="explain"></div>`;
+  qArea.innerHTML = html;
+  qArea.scrollTop=0;
+
+  qArea.querySelectorAll(".opt").forEach(btn=>{
+    btn.onclick=()=>{
+      if(s.answered) return;
+      qArea.querySelectorAll(".opt").forEach(b=>b.classList.remove("selected"));
+      btn.classList.add("selected");
+      s.selected=parseInt(btn.dataset.idx);
+      checkBtn.disabled=false;
+      checkBtn.className="btn green";
+    };
+  });
+
+  checkBtn.textContent="Check";
+  checkBtn.className="btn gray";
+  checkBtn.disabled=true;
+  checkBtn.onclick=submitAnswer;
+}
+
+function submitAnswer(){
+  const s=session, qd=s.questions[s.i];
+  if(s.selected===null) return;
+  s.answered=true;
+  const correct = s.selected===qd.a;
+  const opts=qArea.querySelectorAll(".opt");
+  opts.forEach((b,idx)=>{
+    b.classList.add("disabled");
+    if(idx===qd.a) b.classList.add("correct");
+    else if(idx===s.selected) b.classList.add("wrong");
+  });
+
+  const ex=document.getElementById("explain");
+  ex.className="explain show "+(correct?"ok":"no");
+  ex.innerHTML = `<b>${correct?"Correct! +"+XP_PER+" XP":"Not quite"}</b>${qd.e}`;
+
+  if(correct){ s.correct++; s.gained+=XP_PER; }
+  else{
+    s.hearts--; renderHearts();
+    if(s.hearts<=0){ setTimeout(showFail, 650); }
+  }
+
+  checkBtn.disabled=false;
+  checkBtn.className = "btn " + (correct?"green":"red");
+  checkBtn.textContent = (s.i===s.questions.length-1)?"Finish":"Continue";
+  checkBtn.onclick = ()=>{
+    if(s.hearts<=0 && !correct) return; // fail screen handles it
+    nextQuestion();
+  };
+}
+
+function nextQuestion(){
+  const s=session;
+  if(s.i < s.questions.length-1){ s.i++; renderQuestion(); }
+  else { finishLesson(); }
+}
+
+function finishLesson(){
+  const s=session;
+  progFill.style.width="100%";
+  // award XP for correct answers
+  state.xp += s.gained;
+  // mark complete
+  state.completed[lessonKey(s.u,s.l)] = true;
+  // streak handling
+  updateStreak();
+  save();
+
+  // show win screen
+  document.getElementById("winXp").textContent = "+"+s.gained;
+  const acc = Math.round(s.correct/s.questions.length*100);
+  document.getElementById("winAcc").textContent = acc+"%";
+  document.getElementById("winSub").textContent =
+    acc===100 ? "Flawless climb! 🏔️" : (acc>=66 ? "Solid work — keep ascending." : "Lesson logged. Review and retry to sharpen.");
+  lessonEl.classList.remove("open");
+  document.getElementById("winScreen").classList.add("open");
+}
+
+function updateStreak(){
+  const today = todayStr();
+  if(state.lastActive===today){ /* already counted today */ }
+  else if(state.lastActive && daysBetween(state.lastActive, today)===1){ state.streak += 1; }
+  else { state.streak = 1; } // first ever, or a gap broke the streak
+  state.lastActive = today;
+}
+
+function showFail(){
+  lessonEl.classList.remove("open");
+  document.getElementById("failScreen").classList.add("open");
+}
+
+/* overlay buttons */
+document.getElementById("winContinue").onclick=()=>{
+  document.getElementById("winScreen").classList.remove("open");
+  renderPath();
+};
+document.getElementById("retryBtn").onclick=()=>{
+  document.getElementById("failScreen").classList.remove("open");
+  startLesson(session.u, session.l);
+};
+document.getElementById("quitBtn").onclick=()=>{
+  document.getElementById("failScreen").classList.remove("open");
+  renderPath();
+};
+document.getElementById("closeLesson").onclick=()=>{
+  if(confirm("Quit this lesson? Progress in it won't be saved.")){
+    lessonEl.classList.remove("open");
+    renderPath();
+  }
+};
+
+/* reset */
+document.getElementById("resetBtn").onclick=()=>{
+  if(confirm("Reset ALL progress (XP, streak, completed lessons)? This cannot be undone.")){
+    state = defaultState();
+    save();
+    renderPath();
+    toast("Progress reset.");
+  }
+};
+
+/* toast */
+let toastTimer=null;
+function toast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove("show"), 1800);
+}
+
+/* check streak freshness on load (a long gap should reset on next play, handled in updateStreak) */
+renderPath();
+</script>
+</body>
+</html>
